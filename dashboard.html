@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EMS Dispatch — Command Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0d14;
+    --surface:  #111622;
+    --card:     #161d2e;
+    --border:   #1f2d45;
+    --accent:   #e63946;
+    --accent2:  #2196f3;
+    --green:    #22c55e;
+    --amber:    #f59e0b;
+    --red:      #ef4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .logo-text { font-family: var(--mono); font-weight: 600; font-size: 15px; letter-spacing: 0.5px; }
+  .logo-sub  { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .header-right { display: flex; align-items: center; gap: 20px; }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--green);
+    letter-spacing: 1px;
+  }
+  .pulse {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.4; transform: scale(1.3); }
+  }
+  .clock { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 300px;
+    gap: 0;
+    height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  aside {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px 0;
+  }
+  .sidebar-section { padding: 0 16px 16px; }
+  .sidebar-label {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+    padding: 12px 16px 8px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 16px; border-radius: 6px;
+    cursor: pointer; transition: background .15s;
+    font-size: 13px; font-weight: 500;
+    color: var(--muted);
+  }
+  .nav-item:hover { background: var(--card); color: var(--text); }
+  .nav-item.active { background: rgba(230,57,70,0.15); color: var(--accent); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: #fff; font-size: 10px; font-family: var(--mono);
+    padding: 1px 6px; border-radius: 10px; font-weight: 600;
+  }
+  .stat-mini {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 8px;
+    margin: 4px 0;
+  }
+  .stat-mini-label { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; }
+  .stat-mini-val   { font-size: 22px; font-family: var(--mono); font-weight: 600; }
+  .color-green  { color: var(--green); }
+  .color-red    { color: var(--red); }
+  .color-amber  { color: var(--amber); }
+  .color-accent { color: var(--accent); }
+
+  /* ── MAIN ── */
+  main {
+    overflow-y: auto;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  /* PAGE VIEW */
+  .page-view { display: none; flex-direction: column; gap: 16px; }
+  .page-view.active-page { display: flex; }
+
+  /* PAGE HEADER */
+  .page-header {
+    display: flex; align-items: center; gap: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .page-header-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .page-header-icon.ph-red { background: rgba(230,57,70,0.15); }
+  .page-header-icon.ph-blue { background: rgba(33,150,243,0.15); }
+  .page-header-icon.ph-green { background: rgba(34,197,94,0.15); }
+  .page-header-icon.ph-amber { background: rgba(245,158,11,0.15); }
+  .page-header-icon.ph-purple { background: rgba(139,92,246,0.15); }
+  .page-header h2 {
+    font-family: var(--mono); font-size: 16px; font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .page-header .page-desc {
+    font-size: 12px; color: var(--muted); margin-top: 2px;
+  }
+
+  /* KPI ROW */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative; overflow: hidden;
+  }
+  .kpi::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%;
+  }
+  .kpi.k-red::before    { background: var(--red); }
+  .kpi.k-green::before  { background: var(--green); }
+  .kpi.k-amber::before  { background: var(--amber); }
+  .kpi.k-blue::before   { background: var(--accent2); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; }
+  .kpi-value { font-size: 30px; font-family: var(--mono); font-weight: 600; margin: 4px 0; }
+  .kpi-sub   { font-size: 11px; color: var(--muted); }
+
+  /* SECTION TITLE */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+  }
+  .btn-sm {
+    padding: 5px 12px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--card);
+    color: var(--text); font-size: 12px; cursor: pointer;
+    font-family: var(--mono); transition: border-color .15s;
+  }
+  .btn-sm:hover { border-color: var(--accent2); }
+  .btn-dispatch {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff; font-weight: 600;
+  }
+  .btn-dispatch:hover { background: #c1121f; border-color: #c1121f; }
+
+  /* INCIDENT TABLE */
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--surface); }
+  th {
+    padding: 10px 14px;
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase;
+    text-align: left; border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(31,45,69,0.5);
+    font-size: 13px; vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* BADGES */
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .badge-critical { background: rgba(239,68,68,.2);  color: #f87171; }
+  .badge-high     { background: rgba(245,158,11,.2); color: #fbbf24; }
+  .badge-medium   { background: rgba(33,150,243,.2); color: #60a5fa; }
+  .badge-low      { background: rgba(34,197,94,.2);  color: #4ade80; }
+  .badge-pending  { background: rgba(245,158,11,.15); color: #fbbf24; }
+  .badge-dispatched { background: rgba(33,150,243,.15); color: #60a5fa; }
+  .badge-progress { background: rgba(139,92,246,.15); color: #a78bfa; }
+  .badge-resolved { background: rgba(34,197,94,.15);  color: #4ade80; }
+  .badge-insert   { background: rgba(34,197,94,.2);  color: #4ade80; }
+  .badge-update   { background: rgba(33,150,243,.2); color: #60a5fa; }
+  .badge-delete   { background: rgba(239,68,68,.2);  color: #f87171; }
+
+  .mono { font-family: var(--mono); font-size: 12px; }
+
+  /* ACTION BUTTONS */
+  .action-btn {
+    padding: 3px 9px; border-radius: 4px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--accent2); font-size: 11px; font-family: var(--mono);
+    cursor: pointer; transition: all .15s;
+  }
+  .action-btn:hover { background: rgba(33,150,243,.1); border-color: var(--accent2); }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .panel-title {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    color: var(--muted); letter-spacing: 2px; text-transform: uppercase;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+
+  /* RESOURCE CARD */
+  .resource-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .resource-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .ri-amb   { background: rgba(33,150,243,.15); }
+  .ri-resp  { background: rgba(34,197,94,.15); }
+  .ri-hosp  { background: rgba(245,158,11,.15); }
+  .resource-info { flex: 1; min-width: 0; }
+  .resource-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .resource-sub  { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .dot-green  { background: var(--green); }
+  .dot-amber  { background: var(--amber); }
+  .dot-red    { background: var(--red); }
+  .dot-blue   { background: var(--accent2); }
+
+  /* ACTIVITY FEED */
+  .feed-item {
+    display: flex; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid rgba(31,45,69,0.5);
+  }
+  .feed-item:last-child { border-bottom: none; }
+  .feed-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .feed-text { font-size: 12px; line-height: 1.5; }
+  .feed-time { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* NEW INCIDENT FORM */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 480px; padding: 24px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title {
+    font-family: var(--mono); font-size: 14px; font-weight: 600;
+    margin-bottom: 18px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-row-full { margin-bottom: 12px; }
+  label { display: block; font-size: 11px; font-family: var(--mono); color: var(--muted); margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+  input, select, textarea {
+    width: 100%; padding: 8px 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: var(--sans); font-size: 13px;
+    outline: none; transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent2); }
+  select option { background: var(--card); }
+  textarea { resize: vertical; min-height: 70px; }
+  .modal-footer { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+  .btn-cancel { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .btn-submit { padding: 8px 20px; border-radius: 6px; border: none; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; font-size: 13px; font-family: var(--mono); }
+  .btn-submit:hover { background: #c1121f; }
+
+  /* GRID CARDS */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .detail-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: border-color .2s;
+  }
+  .detail-card:hover { border-color: var(--accent2); }
+  .detail-card-header {
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  .detail-card-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .detail-card-title { font-weight: 600; font-size: 14px; }
+  .detail-card-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: var(--muted);
+  }
+  .detail-row .detail-val { color: var(--text); font-family: var(--mono); font-size: 12px; }
+
+  /* HISTORY TIMELINE */
+  .history-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex; gap: 14px; align-items: flex-start;
+    transition: border-color .2s;
+  }
+  .history-item:hover { border-color: rgba(139,92,246,0.5); }
+  .history-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .hi-insert { background: rgba(34,197,94,.15); color: var(--green); }
+  .hi-update { background: rgba(33,150,243,.15); color: var(--accent2); }
+  .hi-delete { background: rgba(239,68,68,.15); color: var(--red); }
+  .history-body { flex: 1; min-width: 0; }
+  .history-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .history-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 6px; }
+  .history-json {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted);
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 120px; overflow-y: auto;
+  }
+
+  /* ANALYTICS STAT CARDS */
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .empty-state-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+  .empty-state-text { font-size: 14px; font-family: var(--mono); }
+  .empty-state-sub { font-size: 12px; margin-top: 6px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 220px 1fr; }
+    .right-panel { display: none; }
+    .kpi-row { grid-template-columns: repeat(2,1fr); }
+    .analytics-grid { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title">🚨 NEW EMERGENCY INCIDENT</div>
+    <div class="form-row">
+      <div>
+        <label>Caller Name</label>
+        <input type="text" id="f-caller" placeholder="Full name">
+      </div>
+      <div>
+        <label>Caller Phone</label>
+        <input type="tel" id="f-phone" placeholder="+91 XXXXX XXXXX">
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>Incident Type</label>
+        <select id="f-type">
+          <option>Cardiac Arrest</option>
+          <option>Trauma</option>
+          <option>Road Accident</option>
+          <option>Stroke</option>
+          <option>Respiratory</option>
+          <option>Fire Injury</option>
+          <option>Poisoning</option>
+          <option>Maternity</option>
+          <option>Psychiatric</option>
+          <option>Unknown</option>
+        </select>
+      </div>
+      <div>
+        <label>Severity</label>
+        <select id="f-severity">
+          <option value="Critical">🔴 Critical</option>
+          <option value="High">🟠 High</option>
+          <option value="Medium" selected>🟡 Medium</option>
+          <option value="Low">🟢 Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row-full">
+      <label>Incident Address</label>
+      <input type="text" id="f-address" placeholder="Street, area, city…">
+    </div>
+    <div class="form-row-full">
+      <label>Description / Notes</label>
+      <textarea id="f-desc" placeholder="Brief details about the emergency…"></textarea>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>Assign Ambulance</label>
+        <select id="f-amb">
+          <option value="1">MH-AMB-001 (ALS)</option>
+          <option value="2">MH-AMB-002 (BLS)</option>
+          <option value="3">MH-AMB-003 (Critical Care)</option>
+        </select>
+      </div>
+      <div>
+        <label>Assign Responder</label>
+        <select id="f-resp">
+          <option value="1">Dr. Ayesha Khan</option>
+          <option value="2">Ravi Sharma</option>
+          <option value="3">Priya Nair</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-submit" onclick="dispatchIncident()">DISPATCH NOW</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚑</div>
+    <div>
+      <div class="logo-text">EMS COMMAND</div>
+      <div class="logo-sub">Dispatch & Tracking System</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="pulse"></div>LIVE</div>
+    <div class="clock" id="clock">--:--:--</div>
+    <button class="btn-sm btn-dispatch" onclick="openModal()">+ NEW INCIDENT</button>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="sidebar-label">NAVIGATION</div>
+    <div class="nav-item active" data-page="dispatch" onclick="switchPage('dispatch', this)"><span class="nav-icon">📡</span> Live Dispatch <span class="nav-badge" id="active-count">3</span></div>
+    <div class="nav-item" data-page="analytics" onclick="switchPage('analytics', this)"><span class="nav-icon">📊</span> Analytics</div>
+    <div class="nav-item" data-page="settings" onclick="switchPage('settings', this)"><span class="nav-icon">⚙️</span> Settings</div>
+
+    <div class="sidebar-label" style="margin-top:8px;">DATABASE TABLES</div>
+    <div class="nav-item" data-page="zones" onclick="switchPage('zones', this)"><span class="nav-icon">🗺️</span> Zones</div>
+    <div class="nav-item" data-page="hospitals" onclick="switchPage('hospitals', this)"><span class="nav-icon">🏥</span> Hospitals</div>
+    <div class="nav-item" data-page="responders-page" onclick="switchPage('responders-page', this)"><span class="nav-icon">👤</span> Responders</div>
+    <div class="nav-item" data-page="fleet" onclick="switchPage('fleet', this)"><span class="nav-icon">🚑</span> Ambulances</div>
+    <div class="nav-item" data-page="patients" onclick="switchPage('patients', this)"><span class="nav-icon">🩺</span> Patients</div>
+    <div class="nav-item" data-page="incident-log" onclick="switchPage('incident-log', this)"><span class="nav-icon">📋</span> Incidents</div>
+    <div class="nav-item" data-page="dispatch-log" onclick="switchPage('dispatch-log', this)"><span class="nav-icon">📦</span> Dispatch Log</div>
+    <div class="nav-item" data-page="triage" onclick="switchPage('triage', this)"><span class="nav-icon">🩻</span> Triage Records</div>
+    <div class="nav-item" data-page="equipment" onclick="switchPage('equipment', this)"><span class="nav-icon">🧰</span> Equipment</div>
+    <div class="nav-item" data-page="history" onclick="switchPage('history', this)"><span class="nav-icon">🕓</span> Audit Log</div>
+
+    <div class="sidebar-label" style="margin-top:8px;">RESOURCES</div>
+    <div class="sidebar-section">
+      <div class="stat-mini">
+        <div class="stat-mini-label">Ambulances Available</div>
+        <div class="stat-mini-val color-green" id="avail-amb">3</div>
+      </div>
+      <div class="stat-mini">
+        <div class="stat-mini-label">Responders on Duty</div>
+        <div class="stat-mini-val color-accent" id="on-duty">2</div>
+      </div>
+      <div class="stat-mini">
+        <div class="stat-mini-label">Pending Incidents</div>
+        <div class="stat-mini-val color-amber" id="pending-cnt">1</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main>
+
+    <!-- ═══════ PAGE: LIVE DISPATCH ═══════ -->
+    <div class="page-view active-page" id="page-dispatch">
+      <!-- KPI -->
+      <div class="kpi-row">
+        <div class="kpi k-red">
+          <div class="kpi-label">Critical Active</div>
+          <div class="kpi-value color-red" id="kpi-critical">2</div>
+          <div class="kpi-sub">Require immediate response</div>
+        </div>
+        <div class="kpi k-blue">
+          <div class="kpi-label">Dispatched Today</div>
+          <div class="kpi-value" id="kpi-dispatched">7</div>
+          <div class="kpi-sub">Units sent out</div>
+        </div>
+        <div class="kpi k-green">
+          <div class="kpi-label">Avg Response Time</div>
+          <div class="kpi-value color-green" id="kpi-resp-time">6.4<span style="font-size:16px">m</span></div>
+          <div class="kpi-sub">Minutes to scene</div>
+        </div>
+        <div class="kpi k-amber">
+          <div class="kpi-label">Resolved Today</div>
+          <div class="kpi-value color-amber" id="kpi-resolved">12</div>
+          <div class="kpi-sub">Successfully handled</div>
+        </div>
+      </div>
+
+      <!-- INCIDENTS TABLE -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Active Incidents</div>
+          <div style="display:flex;gap:8px;">
+            <select class="btn-sm" id="filter-severity" onchange="filterTable()">
+              <option value="">All Severities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+            <select class="btn-sm" id="filter-status" onchange="filterTable()">
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Dispatched">Dispatched</option>
+              <option value="In Progress">In Progress</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#ID</th>
+                <th>Type</th>
+                <th>Severity</th>
+                <th>Description</th>
+                <th>Address</th>
+                <th>Ambulance</th>
+                <th>Responder</th>
+                <th>Called At</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="incident-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DISPATCH LOG -->
+      <div>
+        <div class="section-header">
+          <div class="section-title">Recent Dispatch Log</div>
+          <button class="btn-sm">Export CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Dispatch #</th>
+                <th>Incident</th>
+                <th>Ambulance</th>
+                <th>Dispatched At</th>
+                <th>Arrived Scene</th>
+                <th>Response (min)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="dispatch-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: INCIDENT LOG ═══════ -->
+    <div class="page-view" id="page-incident-log">
+      <div class="page-header">
+        <div class="page-header-icon ph-blue">📋</div>
+        <div>
+          <h2>Incident Log</h2>
+          <div class="page-desc">Complete history of all incidents — including resolved & cancelled</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Description</th>
+              <th>Caller</th>
+              <th>Address</th>
+              <th>Called At</th>
+              <th>Resolved At</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="all-incidents-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: FLEET ═══════ -->
+    <div class="page-view" id="page-fleet">
+      <div class="page-header">
+        <div class="page-header-icon ph-blue">🚑</div>
+        <div>
+          <h2>Fleet Management</h2>
+          <div class="page-desc">All ambulances and vehicles registered in the system</div>
+        </div>
+      </div>
+      <div class="card-grid" id="fleet-cards"></div>
+    </div>
+
+    <!-- ═══════ PAGE: RESPONDERS ═══════ -->
+    <div class="page-view" id="page-responders-page">
+      <div class="page-header">
+        <div class="page-header-icon ph-green">👤</div>
+        <div>
+          <h2>Responders</h2>
+          <div class="page-desc">All EMTs, paramedics, doctors & dispatchers on the system</div>
+        </div>
+      </div>
+      <div class="card-grid" id="responder-cards"></div>
+    </div>
+
+    <!-- ═══════ PAGE: HOSPITALS ═══════ -->
+    <div class="page-view" id="page-hospitals">
+      <div class="page-header">
+        <div class="page-header-icon ph-amber">🏥</div>
+        <div>
+          <h2>Hospitals</h2>
+          <div class="page-desc">Partner hospitals, bed availability & trauma center info</div>
+        </div>
+      </div>
+      <div class="card-grid" id="hospital-cards"></div>
+    </div>
+
+    <!-- ═══════ PAGE: ANALYTICS ═══════ -->
+    <div class="page-view" id="page-analytics">
+      <div class="page-header">
+        <div class="page-header-icon ph-purple">📊</div>
+        <div>
+          <h2>Analytics</h2>
+          <div class="page-desc">System-wide statistics and performance overview</div>
+        </div>
+      </div>
+      <div class="analytics-grid" id="analytics-cards"></div>
+    </div>
+
+    <!-- ═══════ PAGE: DB HISTORY ═══════ -->
+    <div class="page-view" id="page-history">
+      <div class="page-header">
+        <div class="page-header-icon ph-purple">🕓</div>
+        <div>
+          <h2>Database Change History</h2>
+          <div class="page-desc">Audit trail — every INSERT, UPDATE, DELETE recorded in the database</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;" id="history-feed"></div>
+    </div>
+
+    <!-- ═══════ PAGE: ZONES ═══════ -->
+    <div class="page-view" id="page-zones">
+      <div class="page-header">
+        <div class="page-header-icon ph-green">🗺️</div>
+        <div>
+          <h2>Zones / Service Areas</h2>
+          <div class="page-desc">All registered zones and service regions in the system</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Zone Name</th>
+              <th>Region</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+            </tr>
+          </thead>
+          <tbody id="zones-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: PATIENTS ═══════ -->
+    <div class="page-view" id="page-patients">
+      <div class="page-header">
+        <div class="page-header-icon ph-blue">🩺</div>
+        <div>
+          <h2>Patients</h2>
+          <div class="page-desc">All patient records registered in the system</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Name</th>
+              <th>DOB</th>
+              <th>Gender</th>
+              <th>Blood Group</th>
+              <th>Phone</th>
+              <th>Allergies</th>
+              <th>Medical History</th>
+            </tr>
+          </thead>
+          <tbody id="patients-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: DISPATCH LOG (TABLE VIEW) ═══════ -->
+    <div class="page-view" id="page-dispatch-log">
+      <div class="page-header">
+        <div class="page-header-icon ph-blue">📦</div>
+        <div>
+          <h2>Dispatch Log</h2>
+          <div class="page-desc">Complete dispatch history — ambulance assignments, timings & status</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dispatch #</th>
+              <th>Incident</th>
+              <th>Ambulance</th>
+              <th>Dispatched At</th>
+              <th>Arrived Scene</th>
+              <th>Response (min)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="dispatch-log-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: TRIAGE RECORDS ═══════ -->
+    <div class="page-view" id="page-triage">
+      <div class="page-header">
+        <div class="page-header-icon ph-red">🩻</div>
+        <div>
+          <h2>Triage Records</h2>
+          <div class="page-desc">Patient triage assessments — vitals, GCS, treatment notes</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Dispatch</th>
+              <th>Patient</th>
+              <th>Triage Level</th>
+              <th>Complaint</th>
+              <th>BP</th>
+              <th>Pulse</th>
+              <th>SpO2</th>
+              <th>Temp</th>
+              <th>GCS</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="triage-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: EQUIPMENT ═══════ -->
+    <div class="page-view" id="page-equipment">
+      <div class="page-header">
+        <div class="page-header-icon ph-amber">🧰</div>
+        <div>
+          <h2>Equipment Inventory</h2>
+          <div class="page-desc">Medical equipment across all vehicles — stock, expiry & status</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Qty</th>
+              <th>Vehicle</th>
+              <th>Last Checked</th>
+              <th>Expiry</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="equipment-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════ PAGE: SETTINGS ═══════ -->
+    <div class="page-view" id="page-settings">
+      <div class="page-header">
+        <div class="page-header-icon ph-red">⚙️</div>
+        <div>
+          <h2>Settings</h2>
+          <div class="page-desc">System configuration and preferences</div>
+        </div>
+      </div>
+      <div class="empty-state">
+        <div class="empty-state-icon">⚙️</div>
+        <div class="empty-state-text">Settings coming soon</div>
+        <div class="empty-state-sub">This section will allow you to configure system preferences.</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <div>
+      <div class="panel-title">Fleet Status</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;" id="fleet-list"></div>
+    </div>
+
+    <div>
+      <div class="panel-title">Responders</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;" id="responder-list"></div>
+    </div>
+
+    <div>
+      <div class="panel-title">Activity Feed</div>
+      <div id="activity-feed"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  LIVE DATA — fetched from ApiServer.java ↔ MySQL Database
+//  Auto-refreshes every 5 seconds
+// ══════════════════════════════════════════════════════════════
+
+let incidents    = [];
+let dispatches   = [];
+let ambulances   = [];
+let responders   = [];
+let activityLog  = [];
+let allIncidents = [];
+let hospitals    = [];
+let historyLog   = [];
+let zones        = [];
+let patients     = [];
+let triageRecs   = [];
+let equipmentList= [];
+let currentPage  = 'dispatch';
+
+// ── API BASE (same origin when served by ApiServer) ──
+const API = '';
+
+// ══════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════════
+
+function switchPage(page, navEl) {
+  currentPage = page;
+
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (navEl) navEl.classList.add('active');
+
+  // Toggle page views
+  document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active-page'));
+  const target = document.getElementById('page-' + page);
+  if (target) target.classList.add('active-page');
+
+  // Load page-specific data
+  if (page === 'incident-log') loadAllIncidents();
+  if (page === 'fleet')        loadFleetPage();
+  if (page === 'responders-page') loadRespondersPage();
+  if (page === 'hospitals')    loadHospitals();
+  if (page === 'analytics')    loadAnalytics();
+  if (page === 'history')      loadHistory();
+  if (page === 'zones')        loadZones();
+  if (page === 'patients')     loadPatients();
+  if (page === 'dispatch-log') loadDispatchLogPage();
+  if (page === 'triage')       loadTriage();
+  if (page === 'equipment')    loadEquipment();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FETCH LIVE DATA (main dashboard)
+// ══════════════════════════════════════════════════════════════
+
+async function loadData() {
+  try {
+    const [incRes, ambRes, respRes, dispRes, statRes] = await Promise.all([
+      fetch(API + '/api/incidents'),
+      fetch(API + '/api/ambulances'),
+      fetch(API + '/api/responders'),
+      fetch(API + '/api/dispatches'),
+      fetch(API + '/api/stats')
+    ]);
+
+    incidents   = await incRes.json();
+    const ambData  = await ambRes.json();
+    const respData = await respRes.json();
+    dispatches  = await dispRes.json();
+    const stats = await statRes.json();
+
+    // Map ambulance data for fleet panel
+    ambulances = ambData.map(a => ({ no: a.no, type: a.type, status: a.status, id: a.id }));
+
+    // Map responder data
+    responders = respData.map(r => ({ name: r.name, role: r.role, status: r.status, id: r.id, phone: r.phone }));
+
+    // Build activity feed from live incidents
+    activityLog = incidents.slice(0, 6).map(i => ({
+      color: i.severity === 'Critical' ? 'var(--red)'
+           : i.severity === 'High'     ? 'var(--amber)'
+           : 'var(--accent2)',
+      text: `${i.id} (${i.type}) — ${i.status} — ${i.address}`,
+      time: i.time
+    }));
+
+    // Update KPI cards
+    document.getElementById('kpi-critical').textContent  = stats.critical;
+    document.getElementById('kpi-dispatched').textContent = stats.dispatched;
+    document.getElementById('kpi-resolved').textContent   = stats.resolved;
+    const respTimeEl = document.getElementById('kpi-resp-time');
+    respTimeEl.innerHTML = stats.avgResp > 0
+      ? stats.avgResp + '<span style="font-size:16px">m</span>'
+      : '—';
+
+    // Update sidebar stats
+    document.getElementById('avail-amb').textContent  = stats.availAmb;
+    document.getElementById('on-duty').textContent    = stats.onDuty;
+    document.getElementById('pending-cnt').textContent = stats.pending;
+    document.getElementById('active-count').textContent = stats.activeCount;
+
+    // Populate modal dropdowns with real data
+    populateDropdowns(ambData, respData);
+
+    // Render main dashboard
+    renderAll();
+
+  } catch (err) {
+    console.error('[Dashboard] Failed to fetch data:', err);
+  }
+}
+
+// ── POPULATE MODAL DROPDOWNS FROM DB ──
+function populateDropdowns(ambData, respData) {
+  const ambSel = document.getElementById('f-amb');
+  const respSel = document.getElementById('f-resp');
+
+  // Only update if data has changed
+  if (ambData && ambData.length > 0) {
+    ambSel.innerHTML = ambData.map(a =>
+      `<option value="${a.id}">${a.no} (${a.type}) — ${a.status}</option>`
+    ).join('');
+  }
+  if (respData && respData.length > 0) {
+    respSel.innerHTML = respData.map(r =>
+      `<option value="${r.id}">${r.name} (${r.role})</option>`
+    ).join('');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PAGE-SPECIFIC DATA LOADERS
+// ══════════════════════════════════════════════════════════════
+
+async function loadAllIncidents() {
+  try {
+    const res = await fetch(API + '/api/incidents/all');
+    allIncidents = await res.json();
+    renderAllIncidents();
+  } catch (err) {
+    console.error('[Incidents] Failed:', err);
+  }
+}
+
+async function loadFleetPage() {
+  // Reuse cached ambulance data from main load
+  renderFleetCards();
+}
+
+async function loadRespondersPage() {
+  renderResponderCards();
+}
+
+async function loadHospitals() {
+  try {
+    const res = await fetch(API + '/api/hospitals');
+    hospitals = await res.json();
+    renderHospitalCards();
+  } catch (err) {
+    console.error('[Hospitals] Failed:', err);
+  }
+}
+
+async function loadAnalytics() {
+  renderAnalyticsCards();
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(API + '/api/history');
+    historyLog = await res.json();
+    renderHistory();
+  } catch (err) {
+    console.error('[History] Failed:', err);
+  }
+}
+
+async function loadZones() {
+  try {
+    const res = await fetch(API + '/api/zones');
+    zones = await res.json();
+    renderZonesTable();
+  } catch (err) {
+    console.error('[Zones] Failed:', err);
+  }
+}
+
+async function loadPatients() {
+  try {
+    const res = await fetch(API + '/api/patients');
+    patients = await res.json();
+    renderPatientsTable();
+  } catch (err) {
+    console.error('[Patients] Failed:', err);
+  }
+}
+
+async function loadDispatchLogPage() {
+  // Reuse cached dispatches data
+  renderDispatchLogTable();
+}
+
+async function loadTriage() {
+  try {
+    const res = await fetch(API + '/api/triage');
+    triageRecs = await res.json();
+    renderTriageTable();
+  } catch (err) {
+    console.error('[Triage] Failed:', err);
+  }
+}
+
+async function loadEquipment() {
+  try {
+    const res = await fetch(API + '/api/equipment');
+    equipmentList = await res.json();
+    renderEquipmentTable();
+  } catch (err) {
+    console.error('[Equipment] Failed:', err);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER HELPERS
+// ══════════════════════════════════════════════════════════════
+
+function sevBadge(s) {
+  const m = { Critical:'badge-critical', High:'badge-high', Medium:'badge-medium', Low:'badge-low' };
+  return `<span class="badge ${m[s]||'badge-medium'}">${s}</span>`;
+}
+function statusBadge(s) {
+  const m = { Pending:'badge-pending', Dispatched:'badge-dispatched', 'In Progress':'badge-progress', Resolved:'badge-resolved', 'At Scene':'badge-progress', 'En Route':'badge-dispatched', Completed:'badge-resolved', Cancelled:'badge-critical' };
+  return `<span class="badge ${m[s]||'badge-pending'}">${s}</span>`;
+}
+function actionBadge(a) {
+  const m = { INSERT:'badge-insert', UPDATE:'badge-update', DELETE:'badge-delete' };
+  return `<span class="badge ${m[a]||'badge-update'}">${a}</span>`;
+}
+function dotClass(s) {
+  if (s === 'Available') return 'dot-green';
+  if (s === 'On Duty' || s === 'Dispatched' || s === 'En Route') return 'dot-blue';
+  if (s === 'At Scene') return 'dot-amber';
+  return 'dot-red';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: MAIN DASHBOARD
+// ══════════════════════════════════════════════════════════════
+
+function renderIncidents(data) {
+  const tbody = document.getElementById('incident-table');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;">No active incidents — data is loaded live from the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(i => `
+    <tr>
+      <td><span class="mono">${i.id}</span></td>
+      <td>${i.type}</td>
+      <td>${sevBadge(i.severity)}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);" title="${i.desc || ''}">${i.desc || '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.address}</td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${i.amb}</span></td>
+      <td style="font-size:12px;">${i.resp}</td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${i.time}</span></td>
+      <td>${statusBadge(i.status)}</td>
+      <td>
+        ${i.status==='Pending'
+          ? `<button class="action-btn" onclick="quickDispatch(${i.dbId})">Dispatch</button>`
+          : `<button class="action-btn" style="color:var(--muted)">Track</button>`}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderDispatches() {
+  const tbody = document.getElementById('dispatch-table');
+  if (!dispatches || dispatches.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No dispatch logs yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = dispatches.map(d => `
+    <tr>
+      <td><span class="mono">${d.id}</span></td>
+      <td><span class="mono">${d.incident}</span></td>
+      <td><span class="mono" style="font-size:11px;">${d.amb}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${d.dispatched}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${d.arrived || '—'}</span></td>
+      <td style="text-align:center;font-family:var(--mono);color:var(--green)">${d.respMin}</td>
+      <td>${statusBadge(d.status)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderFleet() {
+  const el = document.getElementById('fleet-list');
+  if (!ambulances || ambulances.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px;">No ambulances in database</div>';
+    return;
+  }
+  el.innerHTML = ambulances.map(a => `
+    <div class="resource-card">
+      <div class="resource-icon ri-amb">🚑</div>
+      <div class="resource-info">
+        <div class="resource-name">${a.no}</div>
+        <div class="resource-sub">${a.type}</div>
+      </div>
+      <div class="dot ${dotClass(a.status)}" title="${a.status}"></div>
+    </div>
+  `).join('');
+}
+
+function renderResponders() {
+  const el = document.getElementById('responder-list');
+  if (!responders || responders.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px;">No responders in database</div>';
+    return;
+  }
+  el.innerHTML = responders.map(r => `
+    <div class="resource-card">
+      <div class="resource-icon ri-resp">👤</div>
+      <div class="resource-info">
+        <div class="resource-name">${r.name}</div>
+        <div class="resource-sub">${r.role}</div>
+      </div>
+      <div class="dot ${dotClass(r.status)}" title="${r.status}"></div>
+    </div>
+  `).join('');
+}
+
+function renderFeed() {
+  const el = document.getElementById('activity-feed');
+  if (!activityLog || activityLog.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px;">No recent activity</div>';
+    return;
+  }
+  el.innerHTML = activityLog.map(a => `
+    <div class="feed-item">
+      <div class="feed-dot" style="background:${a.color}"></div>
+      <div>
+        <div class="feed-text">${a.text}</div>
+        <div class="feed-time">${a.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: INCIDENT LOG (ALL INCIDENTS)
+// ══════════════════════════════════════════════════════════════
+
+function renderAllIncidents() {
+  const tbody = document.getElementById('all-incidents-table');
+  if (!allIncidents || allIncidents.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px;">No incidents found in the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allIncidents.map(i => `
+    <tr>
+      <td><span class="mono">${i.id}</span></td>
+      <td>${i.type}</td>
+      <td>${sevBadge(i.severity)}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);" title="${i.desc || ''}">${i.desc || '—'}</td>
+      <td style="font-size:12px;">${i.caller || '—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.address}</td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${i.time}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${i.resolvedAt || '—'}</span></td>
+      <td>${statusBadge(i.status)}</td>
+    </tr>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: FLEET CARDS (Full page)
+// ══════════════════════════════════════════════════════════════
+
+function renderFleetCards() {
+  const el = document.getElementById('fleet-cards');
+  if (!ambulances || ambulances.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚑</div><div class="empty-state-text">No ambulances in the database</div></div>';
+    return;
+  }
+  el.innerHTML = ambulances.map(a => `
+    <div class="detail-card">
+      <div class="detail-card-header">
+        <div class="detail-card-icon ri-amb">🚑</div>
+        <div>
+          <div class="detail-card-title">${a.no}</div>
+          <div class="detail-card-sub">${a.type}</div>
+        </div>
+        <div class="dot ${dotClass(a.status)}" style="margin-left:auto;" title="${a.status}"></div>
+      </div>
+      <div class="detail-row"><span>Status</span><span class="detail-val">${statusBadge(a.status)}</span></div>
+      <div class="detail-row"><span>Vehicle Type</span><span class="detail-val">${a.type}</span></div>
+      <div class="detail-row"><span>DB ID</span><span class="detail-val">#${a.id}</span></div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: RESPONDER CARDS (Full page)
+// ══════════════════════════════════════════════════════════════
+
+function renderResponderCards() {
+  const el = document.getElementById('responder-cards');
+  if (!responders || responders.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><div class="empty-state-text">No responders in the database</div></div>';
+    return;
+  }
+  el.innerHTML = responders.map(r => `
+    <div class="detail-card">
+      <div class="detail-card-header">
+        <div class="detail-card-icon ri-resp">👤</div>
+        <div>
+          <div class="detail-card-title">${r.name}</div>
+          <div class="detail-card-sub">${r.role}</div>
+        </div>
+        <div class="dot ${dotClass(r.status)}" style="margin-left:auto;" title="${r.status}"></div>
+      </div>
+      <div class="detail-row"><span>Status</span><span class="detail-val">${statusBadge(r.status)}</span></div>
+      <div class="detail-row"><span>Role</span><span class="detail-val">${r.role}</span></div>
+      <div class="detail-row"><span>Phone</span><span class="detail-val">${r.phone || '—'}</span></div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: HOSPITAL CARDS
+// ══════════════════════════════════════════════════════════════
+
+function renderHospitalCards() {
+  const el = document.getElementById('hospital-cards');
+  if (!hospitals || hospitals.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏥</div><div class="empty-state-text">No hospitals in the database</div></div>';
+    return;
+  }
+  el.innerHTML = hospitals.map(h => `
+    <div class="detail-card">
+      <div class="detail-card-header">
+        <div class="detail-card-icon ri-hosp">🏥</div>
+        <div>
+          <div class="detail-card-title">${h.name}</div>
+          <div class="detail-card-sub">${h.zone}</div>
+        </div>
+      </div>
+      <div class="detail-row"><span>Address</span><span class="detail-val">${h.address || '—'}</span></div>
+      <div class="detail-row"><span>Phone</span><span class="detail-val">${h.phone || '—'}</span></div>
+      <div class="detail-row"><span>Total Beds</span><span class="detail-val">${h.totalBeds}</span></div>
+      <div class="detail-row"><span>Available Beds</span><span class="detail-val" style="color:var(--green)">${h.availBeds}</span></div>
+      <div class="detail-row"><span>Trauma Center</span><span class="detail-val">${h.trauma ? '✅ Yes' : '❌ No'}</span></div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: ANALYTICS
+// ══════════════════════════════════════════════════════════════
+
+function renderAnalyticsCards() {
+  const el = document.getElementById('analytics-cards');
+  const critVal = document.getElementById('kpi-critical').textContent;
+  const dispVal = document.getElementById('kpi-dispatched').textContent;
+  const resVal  = document.getElementById('kpi-resolved').textContent;
+  const ambAvail = document.getElementById('avail-amb').textContent;
+  const onDuty   = document.getElementById('on-duty').textContent;
+  const pending  = document.getElementById('pending-cnt').textContent;
+
+  const stats = [
+    { icon: '🔴', label: 'Critical Active', value: critVal, color: 'var(--red)' },
+    { icon: '🚀', label: 'Dispatched Today', value: dispVal, color: 'var(--accent2)' },
+    { icon: '✅', label: 'Resolved Today', value: resVal, color: 'var(--green)' },
+    { icon: '🚑', label: 'Ambulances Available', value: ambAvail, color: 'var(--green)' },
+    { icon: '👤', label: 'Responders on Duty', value: onDuty, color: 'var(--accent2)' },
+    { icon: '⏳', label: 'Pending Incidents', value: pending, color: 'var(--amber)' },
+    { icon: '📋', label: 'Total Active Incidents', value: incidents.length, color: 'var(--red)' },
+    { icon: '🚑', label: 'Total Fleet Size', value: ambulances.length, color: 'var(--accent2)' },
+    { icon: '📊', label: 'Dispatch Logs', value: dispatches.length, color: 'var(--amber)' },
+  ];
+
+  el.innerHTML = stats.map(s => `
+    <div class="kpi" style="border-left: 3px solid ${s.color};">
+      <div class="kpi-label">${s.icon} ${s.label}</div>
+      <div class="kpi-value" style="color:${s.color}">${s.value}</div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: DB CHANGE HISTORY
+// ══════════════════════════════════════════════════════════════
+
+function renderHistory() {
+  const el = document.getElementById('history-feed');
+  if (!historyLog || historyLog.length === 0) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🕓</div>
+        <div class="empty-state-text">No database changes recorded yet</div>
+        <div class="empty-state-sub">When you INSERT, UPDATE, or DELETE data via the Java app or API, changes will appear here.<br>
+        Make sure your MySQL triggers or app logic writes to the <code style="color:var(--accent)">audit_log</code> table.</div>
+      </div>`;
+    return;
+  }
+  el.innerHTML = historyLog.map(h => {
+    const iconCls = h.action === 'INSERT' ? 'hi-insert'
+                  : h.action === 'DELETE' ? 'hi-delete'
+                  : 'hi-update';
+    const icon = h.action === 'INSERT' ? '➕'
+               : h.action === 'DELETE' ? '🗑️'
+               : '✏️';
+    return `
+      <div class="history-item">
+        <div class="history-icon ${iconCls}">${icon}</div>
+        <div class="history-body">
+          <div class="history-title">${actionBadge(h.action)} on <span style="color:var(--accent2)">${h.table}</span> — Record #${h.recordId}</div>
+          <div class="history-meta">By ${h.changedBy || 'System'} • ${h.changedAt}</div>
+          ${h.oldValues ? `<div class="history-json"><strong style="color:var(--red)">OLD:</strong> ${h.oldValues}</div>` : ''}
+          ${h.newValues ? `<div class="history-json" style="margin-top:4px;"><strong style="color:var(--green)">NEW:</strong> ${h.newValues}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: ZONES TABLE
+// ══════════════════════════════════════════════════════════════
+
+function renderZonesTable() {
+  const tbody = document.getElementById('zones-table');
+  if (!zones || zones.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No zones in the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = zones.map(z => `
+    <tr>
+      <td><span class="mono">${z.id}</span></td>
+      <td style="font-weight:500;">${z.name}</td>
+      <td>${z.region || '—'}</td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${z.lat ?? '—'}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${z.lng ?? '—'}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: PATIENTS TABLE
+// ══════════════════════════════════════════════════════════════
+
+function renderPatientsTable() {
+  const tbody = document.getElementById('patients-table');
+  if (!patients || patients.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">No patients in the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = patients.map(p => `
+    <tr>
+      <td><span class="mono">${p.id}</span></td>
+      <td style="font-weight:500;">${p.name || '—'}</td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${p.dob}</span></td>
+      <td>${p.gender}</td>
+      <td><span class="badge badge-medium">${p.bloodGroup}</span></td>
+      <td><span class="mono" style="font-size:11px;">${p.phone}</span></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${p.allergies}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${p.medicalHistory}</td>
+    </tr>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: DISPATCH LOG TABLE (full page)
+// ══════════════════════════════════════════════════════════════
+
+function renderDispatchLogTable() {
+  const tbody = document.getElementById('dispatch-log-table');
+  if (!dispatches || dispatches.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No dispatch logs in the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = dispatches.map(d => `
+    <tr>
+      <td><span class="mono">${d.id}</span></td>
+      <td><span class="mono">${d.incident}</span></td>
+      <td><span class="mono" style="font-size:11px;">${d.amb}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${d.dispatched}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${d.arrived || '—'}</span></td>
+      <td style="text-align:center;font-family:var(--mono);color:var(--green)">${d.respMin}</td>
+      <td>${statusBadge(d.status)}</td>
+    </tr>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: TRIAGE TABLE
+// ══════════════════════════════════════════════════════════════
+
+function triageBadge(level) {
+  const m = { Immediate:'badge-critical', Delayed:'badge-high', Minimal:'badge-low', Expectant:'badge-medium' };
+  return `<span class="badge ${m[level]||'badge-medium'}">${level}</span>`;
+}
+
+function renderTriageTable() {
+  const tbody = document.getElementById('triage-table');
+  if (!triageRecs || triageRecs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px;">No triage records in the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = triageRecs.map(t => `
+    <tr>
+      <td><span class="mono">${t.id}</span></td>
+      <td><span class="mono">D-${String(t.dispatchId).padStart(3,'0')}</span></td>
+      <td style="font-size:12px;">${t.patient}</td>
+      <td>${triageBadge(t.level)}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${t.complaint}</td>
+      <td><span class="mono" style="font-size:11px;">${t.bp}</span></td>
+      <td><span class="mono" style="font-size:11px;">${t.pulse || '—'}</span></td>
+      <td><span class="mono" style="font-size:11px;">${t.spo2}</span></td>
+      <td><span class="mono" style="font-size:11px;">${t.temp}</span></td>
+      <td><span class="mono" style="font-size:11px;font-weight:600;color:${t.gcs <= 8 ? 'var(--red)' : t.gcs <= 12 ? 'var(--amber)' : 'var(--green)'}">${t.gcs || '—'}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${t.time}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER: EQUIPMENT TABLE
+// ══════════════════════════════════════════════════════════════
+
+function equipStatusBadge(s) {
+  const m = { Available:'badge-low', 'In Use':'badge-dispatched', Expired:'badge-critical', 'Under Maintenance':'badge-high' };
+  return `<span class="badge ${m[s]||'badge-medium'}">${s}</span>`;
+}
+
+function renderEquipmentTable() {
+  const tbody = document.getElementById('equipment-table');
+  if (!equipmentList || equipmentList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">No equipment in the database</td></tr>';
+    return;
+  }
+  tbody.innerHTML = equipmentList.map(e => `
+    <tr>
+      <td><span class="mono">${e.id}</span></td>
+      <td style="font-weight:500;">${e.name}</td>
+      <td style="font-size:12px;">${e.category}</td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:600;">${e.qty}</td>
+      <td><span class="mono" style="font-size:11px;">${e.vehicle}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${e.lastChecked}</span></td>
+      <td><span class="mono" style="font-size:11px;color:var(--muted)">${e.expiry}</span></td>
+      <td>${equipStatusBadge(e.status)}</td>
+    </tr>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TABLE FILTER
+// ══════════════════════════════════════════════════════════════
+
+function filterTable() {
+  const sev = document.getElementById('filter-severity').value;
+  const sts = document.getElementById('filter-status').value;
+  const filtered = incidents.filter(i =>
+    (!sev || i.severity === sev) &&
+    (!sts || i.status === sts)
+  );
+  renderIncidents(filtered);
+}
+
+// ── MODAL ──
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+// ── DISPATCH: POST to API → saves to MySQL ──
+async function dispatchIncident() {
+  const caller  = document.getElementById('f-caller').value || 'Unknown Caller';
+  const phone   = document.getElementById('f-phone').value  || 'N/A';
+  const type    = document.getElementById('f-type').value;
+  const severity= document.getElementById('f-severity').value;
+  const address = document.getElementById('f-address').value || 'Unknown Location';
+  const desc    = document.getElementById('f-desc').value || '';
+  const ambId   = parseInt(document.getElementById('f-amb').value) || 0;
+  const respId  = parseInt(document.getElementById('f-resp').value) || 0;
+
+  try {
+    const res = await fetch(API + '/api/dispatch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        caller, phone, type, severity, address,
+        description: desc, ambulanceId: ambId, responderId: respId
+      })
+    });
+    const result = await res.json();
+    if (result.ok) {
+      console.log('[Dashboard] Dispatched! Incident #' + result.incidentId);
+    } else {
+      alert('Dispatch failed: ' + (result.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
+
+  closeModal();
+  document.getElementById('f-caller').value = '';
+  document.getElementById('f-phone').value  = '';
+  document.getElementById('f-address').value= '';
+  document.getElementById('f-desc').value   = '';
+
+  // Refresh immediately after dispatch
+  await loadData();
+}
+
+// ── QUICK DISPATCH (for pending incidents) ──
+async function quickDispatch(incidentDbId) {
+  try {
+    // Find first available ambulance and responder
+    const availAmb  = ambulances.find(a => a.status === 'Available');
+    const availResp = responders.find(r => r.status === 'Available');
+
+    if (!availAmb) { alert('No available ambulances!'); return; }
+
+    const conn = await fetch(API + '/api/dispatch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quickDispatch: true,
+        incidentId: incidentDbId,
+        ambulanceId: availAmb.id,
+        responderId: availResp ? availResp.id : 0
+      })
+    });
+
+    // Refresh data
+    await loadData();
+  } catch (err) {
+    console.error('Quick dispatch error:', err);
+  }
+}
+
+function timeStr() {
+  const n = new Date();
+  return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+
+function renderAll() {
+  renderIncidents(incidents);
+  renderDispatches();
+  renderFleet();
+  renderResponders();
+  renderFeed();
+}
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-IN', { hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── INIT: Load live data, then auto-refresh every 5 seconds ──
+loadData();
+setInterval(loadData, 5000);
+</script>
+</body>
+</html>
